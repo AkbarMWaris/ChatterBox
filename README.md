@@ -119,6 +119,8 @@ read ticks).
 | GET    | `/api/health`     | -                                          | Liveness check                   |
 | GET    | `/api/messages`   | - (optional `?room=` and `?limit=`, default room `group`, default limit 50) | Fetch chat history for a room |
 | POST   | `/api/messages`   | `{ "text": "...", "user": { "name": "..." }, "to": "Alice" }` | Send a message (`to` = recipient for a private chat, omit for the group) |
+| POST   | `/api/upload`     | multipart form field `file` (image or video) | Upload a file to GridFS; returns `{ id, url, type, name, size, mime }` |
+| GET    | `/api/files/:id`  | -                                          | Stream a stored file (supports `Range` requests for video seeking) |
 
 Error responses are always `{ "success": false, "message": "..." }` with an appropriate status code.
 
@@ -128,7 +130,7 @@ Error responses are always `{ "success": false, "message": "..." }` with an appr
 | ----------------- | --------- | ---------------------------------------------------- | -------------------------------- |
 | `user:join`       | client -> | `{ name }`                                           | Register the user               |
 | `user:joined`     | -> client | `{ name, color }`                                    | Server-assigned avatar color    |
-| `message:send`    | client -> | `{ text, to? }`                                      | Send a message (`to` = DM target) |
+| `message:send`    | client -> | `{ text, to?, file? }`                               | Send a message (`to` = DM target, `file` = attachment metadata from `/api/upload`) |
 | `message:new`     | -> client | `Message`                                            | New message (realtime, room-scoped) |
 | `typing`          | both      | `{ user, isTyping, room }`                           | Typing indicator (per room)     |
 | `message:read`    | both      | `{ messageId }` / `Message`                          | Read receipt                    |
@@ -148,12 +150,19 @@ A message looks like:
   "id": "7c2a...",
   "room": "group",
   "text": "hello everyone",
+  "type": "text",
+  "file": null,
   "user": { "name": "Priya", "color": "#8b5cf6" },
   "createdAt": "2026-08-09T10:15:30.123Z",
   "readBy": ["Ravi"],
   "status": "delivered"
 }
 ```
+
+For media messages `type` is `"image"` or `"video"` and `file` carries
+`{ id, url, type, name, size, mime }`; `url` is an absolute URL pointing back at
+`GET /api/files/:id` so it works from any deployed frontend. `text` may be empty
+for media-only messages (and is validated: a message needs text and/or a file).
 
 Rooms are `group` or `dm:<sorted member names>` (e.g. `dm:Alice:Ravi`).
 
@@ -171,6 +180,11 @@ Rooms are `group` or `dm:<sorted member names>` (e.g. `dm:Alice:Ravi`).
   via mongoose. `server/store/messageStore.js` is the only file that talks to the database,
   and it exposes the same synchronous-looking API to the service layer, so the rest of the
   app stays storage-agnostic. Only the newest 100 messages are kept - older ones are pruned.
+- **Uploads live in GridFS.** Images/videos are streamed into a GridFS bucket inside the
+  same MongoDB database, so they survive server restarts and redeploys (unlike the local
+  disk on Render's free tier). Files are served through `GET /api/files/:id` with `Range`
+  support so `<video>` can seek. Uploads are capped at 10 MB (images) / 50 MB (videos)
+  and only `image/*` and `video/*` mimetypes are accepted.
 - **Persistent member registry.** A `users` collection remembers everyone who has ever
   joined, so group info can list members who are offline. Presence (online/offline) comes
   from the live socket map, not the DB, so it can never go stale after a crash.
@@ -206,9 +220,12 @@ Rooms are `group` or `dm:<sorted member names>` (e.g. `dm:Alice:Ravi`).
 
 ## Known Limitations
 
-- Messages are validated/trimmed server-side but there is no image/file upload support.
+- Messages are validated/trimmed server-side; uploads are limited to `image/*` and
+  `video/*` mimetypes (10 MB images, 50 MB videos).
 - If two users pick the same name, they merge into one member record and read receipts
   treat them as one person (duplicate names are allowed).
 - A message only turns blue when every other member has read it - in a room where a
   member never returns, older messages keep the gray double tick.
 - The `.env` files are optional - the app runs on sensible defaults.
+- Uploaded files are never deleted - old GridFS files stay in the database even after
+  their messages are pruned.

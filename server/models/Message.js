@@ -7,7 +7,15 @@ const messageSchema = new mongoose.Schema(
   {
     id: { type: String, default: () => crypto.randomUUID(), unique: true },
     room: { type: String, default: 'group', index: true },
-    text: { type: String, required: true, trim: true, maxlength: 1000 },
+    text: { type: String, default: '', trim: true, maxlength: 1000 },
+    type: { type: String, enum: ['text', 'image', 'video'], default: 'text' },
+    file: {
+      id: { type: String, default: null },
+      url: { type: String, default: null },
+      name: { type: String, default: null },
+      size: { type: Number, default: null },
+      mime: { type: String, default: null }
+    },
     user: {
       name: { type: String, required: true },
       color: { type: String, required: true }

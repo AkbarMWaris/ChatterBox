@@ -743,6 +743,57 @@ button {
   cursor: not-allowed;
 }
 
+.attach-button {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.attach-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.attach-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.message-upload-hint {
+  align-self: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-image {
+  display: block;
+  max-width: 280px;
+  max-height: 260px;
+  border-radius: 10px;
+  margin-bottom: 4px;
+}
+
+.message-video {
+  display: block;
+  max-width: 320px;
+  max-height: 260px;
+  border-radius: 10px;
+  margin-bottom: 4px;
+}
+
 /* ---------- scrollbar ---------- */
 
 .message-list::-webkit-scrollbar,

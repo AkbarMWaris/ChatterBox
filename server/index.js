@@ -5,6 +5,7 @@ require('dotenv').config();
 
 const { connectDB } = require('./config/db');
 const messageRoutes = require('./routes/messages');
+const uploadRoutes = require('./routes/uploads');
 const { initSocket } = require('./socket');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { getCorsOptions } = require('./utils/cors');
@@ -27,6 +28,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/messages', messageRoutes);
+app.use('/api', uploadRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

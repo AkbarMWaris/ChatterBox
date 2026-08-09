@@ -129,9 +129,13 @@ export default function useChat(user, onServerError, onUserJoined) {
     }
   }
 
-  function sendMessage(text, to) {
+  function sendMessage(text, to, attachment) {
     if (!socketRef.current?.connected) return false;
-    socketRef.current.emit('message:send', { text, to });
+    socketRef.current.emit('message:send', {
+      text,
+      to,
+      file: attachment
+    });
     socketRef.current.emit('typing', { isTyping: false, to });
     return true;
   }

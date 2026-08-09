@@ -10,6 +10,8 @@ function serialize(doc) {
     id: doc.id,
     room: doc.room,
     text: doc.text,
+    type: doc.type,
+    file: doc.file,
     user: doc.user,
     createdAt: doc.createdAt,
     readBy: doc.readBy,
@@ -25,10 +27,12 @@ async function getMessages(room = 'group', limit = 50) {
   return messages.reverse().map(serialize);
 }
 
-async function addMessage({ text, user, room = 'group' }) {
+async function addMessage({ text, user, room = 'group', type = 'text', file = null }) {
   const message = await Message.create({
     room,
     text,
+    type,
+    file,
     user: { name: user.name, color: user.color },
     readBy: [],
     status: 'delivered'

@@ -32,8 +32,8 @@ export default function ChatRoom({ user, onLogout, onUserUpdate }) {
     openRoom(activeRoom);
   }, [activeRoom]);
 
-  function handleSend(text) {
-    const ok = sendMessage(text, isDm ? chat.name : null);
+  function handleSend(text, attachment) {
+    const ok = sendMessage(text, isDm ? chat.name : null, attachment);
     if (!ok) setNotice('Not connected to the server yet, please wait a second');
   }
 
@@ -105,6 +105,7 @@ export default function ChatRoom({ user, onLogout, onUserUpdate }) {
           key={activeRoom}
           onSend={handleSend}
           onTyping={handleTyping}
+          onUploadError={(msg) => setNotice(msg)}
           disabled={!connected}
         />
       </main>

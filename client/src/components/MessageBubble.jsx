@@ -13,7 +13,24 @@ export default function MessageBubble({ message, isOwn }) {
 
       <div className={`message-bubble ${isOwn ? 'sent' : 'received'}`}>
         {!isOwn && <div className="message-sender">{message.user.name}</div>}
-        <div className="message-text">{message.text}</div>
+        {message.type === 'image' && (
+          <a href={message.file.url} target="_blank" rel="noreferrer">
+            <img
+              className="message-image"
+              src={message.file.url}
+              alt={message.file.name || 'image'}
+            />
+          </a>
+        )}
+        {message.type === 'video' && (
+          <video
+            className="message-video"
+            src={message.file.url}
+            controls
+            preload="metadata"
+          />
+        )}
+        {message.text && <div className="message-text">{message.text}</div>}
         <div className="message-meta">
           <span>{formatTime(message.createdAt)}</span>
           {isOwn && (

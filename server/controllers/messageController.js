@@ -13,8 +13,8 @@ exports.getMessages = async (req, res, next) => {
 
 exports.sendMessage = async (req, res, next) => {
   try {
-    const { text, user, to } = req.body;
-    const message = await messageService.addMessage({ text, user, to });
+    const { text, user, to, file } = req.body;
+    const message = await messageService.addMessage({ text, user, to, file });
 
     // broadcast through the socket so everyone gets it in real time
     req.io.emitToRoom(message.room, 'message:new', message);

@@ -74,13 +74,18 @@ function initSocket(server) {
       }
 
       const text = payload?.text ? String(payload.text).trim().slice(0, 1000) : '';
-      if (!text) {
+      if (!text && !payload?.file) {
         socket.emit('message:error', { message: 'Message cannot be empty' });
         return;
       }
 
       try {
-        const message = await messageService.addMessage({ text, user, to: payload.to });
+        const message = await messageService.addMessage({
+          text,
+          user,
+          to: payload.to,
+          file: payload.file
+        });
         emitToRoom(message.room, 'message:new', message);
       } catch (err) {
         console.error('Could not store message:', err.message);

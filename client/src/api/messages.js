@@ -21,3 +21,13 @@ export async function sendMessage(payload) {
   });
   return handleResponse(res);
 }
+
+export async function uploadFile(file) {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/upload`, {
+    method: 'POST',
+    body: form
+  });
+  return handleResponse(res);
+}
