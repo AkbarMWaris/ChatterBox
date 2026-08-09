@@ -9,10 +9,11 @@ Messages are delivered instantly over WebSockets, and history survives page refr
 ## Features
 
 - Instant messaging with Socket.io (no polling, no page refresh)
+- **Private 1-on-1 chats** with any group member, separated from the group chat
 - Chat history shown on load / refresh (stored in MongoDB, survives restarts)
 - Message timestamps with "Today / Yesterday" day dividers
 - Username login (dummy auth, persisted in localStorage)
-- Typing indicator with a safety timeout
+- Typing indicator with a safety timeout (works per conversation)
 - Group info: every member who ever joined (online/offline, last seen)
 - Online/offline presence list with dots
 - Read / delivered receipts (double tick = delivered, blue double tick = read by everyone)
@@ -43,6 +44,7 @@ message app/
     ├── services/                   # business logic (messageService)
     ├── store/                      # persistence layer (messageStore, userStore)
     ├── utils/color.js              # deterministic avatar color per name
+    ├── utils/room.js               # room naming for group/private chats
     └── middleware/errorHandler.js  # 404 + 500 handling
 ```
 
@@ -115,8 +117,8 @@ read ticks).
 | Method | Endpoint          | Body                                       | Description                      |
 | ------ | ----------------- | ------------------------------------------ | -------------------------------- |
 | GET    | `/api/health`     | -                                          | Liveness check                   |
-| GET    | `/api/messages`   | - (optional `?limit=` query, default 50)  | Fetch chat history               |
-| POST   | `/api/messages`   | `{ "text": "...", "user": { "name": "..." } }` | Send a message (broadcasts over Socket.io) |
+| GET    | `/api/messages`   | - (optional `?room=` and `?limit=`, default room `group`, default limit 50) | Fetch chat history for a room |
+| POST   | `/api/messages`   | `{ "text": "...", "user": { "name": "..." }, "to": "Alice" }` | Send a message (`to` = recipient for a private chat, omit for the group) |
 
 Error responses are always `{ "success": false, "message": "..." }` with an appropriate status code.
 
@@ -126,33 +128,45 @@ Error responses are always `{ "success": false, "message": "..." }` with an appr
 | ----------------- | --------- | ---------------------------------------------------- | -------------------------------- |
 | `user:join`       | client -> | `{ name }`                                           | Register the user               |
 | `user:joined`     | -> client | `{ name, color }`                                    | Server-assigned avatar color    |
-| `chat:history`    | -> client | `Message[]`                                          | History on join (after refresh) |
-| `message:send`    | client -> | `{ text }`                                           | Send a message                  |
-| `message:new`     | -> client | `Message`                                            | New message (realtime)          |
-| `typing`          | both      | `{ user, isTyping }`                                 | Typing indicator                |
+| `message:send`    | client -> | `{ text, to? }`                                      | Send a message (`to` = DM target) |
+| `message:new`     | -> client | `Message`                                            | New message (realtime, room-scoped) |
+| `typing`          | both      | `{ user, isTyping, room }`                           | Typing indicator (per room)     |
 | `message:read`    | both      | `{ messageId }` / `Message`                          | Read receipt                    |
 | `members:update`  | -> client | `[{ name, color, online, lastSeen }]`                | Full member list (all joiners)  |
-| `system:notice`   | -> client | `{ text, type: 'join' \| 'leave' }`                  | Join/leave notices              |
+| `unread:update`   | -> client | `{ room: count, ... }`                              | Unread badge counts per room    |
+| `system:notice`   | -> client | `{ text, type: 'join' \| 'leave' }`                  | Join/leave notices (group only) |
 | `message:error`   | -> client | `{ message }`                                        | Socket-level validation errors  |
+
+Messages carry a `room` field: `"group"` for the shared chat, or `"dm:Alice:Bob"`
+(sorted names) for private chats. DM messages and DM typing are only delivered to the
+two participants' sockets.
 
 A message looks like:
 
 ```json
 {
   "id": "7c2a...",
+  "room": "group",
   "text": "hello everyone",
   "user": { "name": "Priya", "color": "#8b5cf6" },
   "createdAt": "2026-08-09T10:15:30.123Z",
   "readBy": ["Ravi"],
-  "status": "read"
+  "status": "delivered"
 }
 ```
+
+Rooms are `group` or `dm:<sorted member names>` (e.g. `dm:Alice:Ravi`).
 
 ## Design Decisions
 
 - **Socket.io is the only realtime channel.** REST is used for history fetch and as an
-  alternative send path; every stored message is broadcast through `io.emit('message:new')`,
-  so clients never poll.
+  alternative send path; every stored message is broadcast through a room-scoped
+  `message:new`, so clients never poll.
+- **Unread badges are server-side.** Counts come from the message store (messages not
+  written by you that your name is missing from `readBy`, grouped by room) and are
+  seeded on `user:join`, so badges survive refreshes. Clients increment locally for
+  messages arriving in other rooms and zero the room's badge when it is opened (opening
+  marks everything as seen, which matches the server's count).
 - **MongoDB as the store.** Messages live in a `chatterbox` database (collection `messages`)
   via mongoose. `server/store/messageStore.js` is the only file that talks to the database,
   and it exposes the same synchronous-looking API to the service layer, so the rest of the
@@ -162,9 +176,13 @@ A message looks like:
   from the live socket map, not the DB, so it can never go stale after a crash.
 - **Messages are broadcast to the whole room** - it is a single shared chat room, so
   presence and read state are room-wide, not per-conversation.
-- **Read = seen by every other member.** Clients emit `message:read` for messages that
-  arrive on an open screen (including on refresh). A message shows a blue double tick only
-  once every other registered member has read it; a gray double tick means delivered.
+- **Two conversation types, one message model.** Private chats are rooms named
+  `dm:<sorted names>`; group chat is the `group` room. DM events are delivered only to
+  the two participants' sockets, group events to everyone.
+- **Read = seen by every other participant.** Clients emit `message:read` for messages
+  that arrive on an open screen (including on refresh). A message shows a blue double
+  tick only once every other participant has read it (for DMs that is the single other
+  person); a gray double tick means delivered.
 - **Avatar color is derived from the name** (hash of the name against a fixed palette),
   so a user keeps the same color across sessions without any storage.
 - **Typing indicator has a 3s client-side safety timer** so a missed "typing: false" can
@@ -176,7 +194,8 @@ A message looks like:
 
 ## Assumptions
 
-- Single shared chat room (no private conversations/channels).
+- Two conversation types: one shared `group` room plus private `dm:` rooms between
+  any two members.
 - Dummy authentication: any name up to 20 characters; the name is stored in
   `localStorage`, no passwords or sessions (real auth would need a User model +
   token handling).

@@ -1,8 +1,10 @@
 const { Server } = require('socket.io');
 
 const messageService = require('./services/messageService');
+const messageStore = require('./store/messageStore');
 const userStore = require('./store/userStore');
 const { colorForName } = require('./utils/color');
+const { dmRoom, isDmRoom, roomParticipants } = require('./utils/room');
 
 // socket.id -> { name, color }
 // presence lives here, in memory: the DB flag can go stale when a
@@ -16,15 +18,32 @@ function initSocket(server) {
     }
   });
 
+  // deliver an event to everyone in a room:
+  // group -> everybody, dm -> only the two participants
+  function emitToRoom(room, event, payload, exceptName = null) {
+    if (!isDmRoom(room)) {
+      io.emit(event, payload);
+      return;
+    }
+    for (const name of roomParticipants(room)) {
+      if (name === exceptName) continue;
+      for (const [socketId, u] of onlineUsers) {
+        if (u.name === name) io.to(socketId).emit(event, payload);
+      }
+    }
+  }
+
   async function broadcastMembers() {
     const members = await userStore.getMembers();
     const present = new Set([...onlineUsers.values()].map((u) => u.name));
     io.emit('members:update', members.map((member) => ({ ...member, online: present.has(member.name) })));
   }
 
+  // the REST controller reuses the same delivery logic
+  io.emitToRoom = emitToRoom;
+
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);
-
     socket.on('user:join', async (payload) => {
       const name = payload?.name ? String(payload.name).trim().slice(0, 20) : 'Anonymous';
       const color = colorForName(name);
@@ -38,13 +57,13 @@ function initSocket(server) {
 
       // tell this socket who it is (server assigns the color)
       socket.emit('user:joined', { name, color });
-      // send recent history so a refresh always shows previous messages
+
+      // seed unread badges from the database (survives refreshes)
       try {
-        const history = await messageService.getMessages(50);
-        socket.emit('chat:history', history);
+        const unread = await messageStore.getUnreadCounts(name);
+        socket.emit('unread:update', unread);
       } catch (err) {
-        console.error('Could not load chat history:', err.message);
-        socket.emit('message:error', { message: 'Could not load chat history' });
+        console.error('Could not load unread counts:', err.message);
       }
     });
 
@@ -62,18 +81,27 @@ function initSocket(server) {
       }
 
       try {
-        const message = await messageService.addMessage({ text, user });
-        io.emit('message:new', message);
+        const message = await messageService.addMessage({ text, user, to: payload.to });
+        emitToRoom(message.room, 'message:new', message);
       } catch (err) {
         console.error('Could not store message:', err.message);
-        socket.emit('message:error', { message: 'Could not store your message, try again' });
+        socket.emit('message:error', { message: err.status === 400 ? err.message : 'Could not store your message, try again' });
       }
     });
 
-    socket.on('typing', (isTyping) => {
+    socket.on('typing', ({ isTyping, to } = {}) => {
       const user = socket.data.user;
       if (!user) return;
-      socket.broadcast.emit('typing', { user: user.name, isTyping: Boolean(isTyping) });
+
+      const room = to ? dmRoom(user.name, String(to).slice(0, 20)) : 'group';
+      const payload = { user: user.name, isTyping: Boolean(isTyping), room };
+
+      if (room === 'group') {
+        socket.broadcast.emit('typing', payload);
+      } else {
+        // only the other participant should see the typing bubble
+        emitToRoom(room, 'typing', payload, user.name);
+      }
     });
 
     socket.on('message:read', async ({ messageId }) => {
@@ -83,7 +111,7 @@ function initSocket(server) {
       try {
         const updated = await messageService.markRead(messageId, user.name);
         if (updated) {
-          io.emit('message:read', updated);
+          emitToRoom(updated.room, 'message:read', updated);
         }
       } catch (err) {
         console.error('Could not update read status:', err.message);

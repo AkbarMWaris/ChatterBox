@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const User = require('../models/User');
+const { isDmRoom, roomParticipants } = require('../utils/room');
 
 const MAX_HISTORY = 100;
 
@@ -7,6 +8,7 @@ const MAX_HISTORY = 100;
 function serialize(doc) {
   return {
     id: doc.id,
+    room: doc.room,
     text: doc.text,
     user: doc.user,
     createdAt: doc.createdAt,
@@ -15,30 +17,31 @@ function serialize(doc) {
   };
 }
 
-async function getMessages(limit = 50) {
-  const messages = await Message.find()
+async function getMessages(room = 'group', limit = 50) {
+  const messages = await Message.find({ room })
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
   return messages.reverse().map(serialize);
 }
 
-async function addMessage({ text, user }) {
+async function addMessage({ text, user, room = 'group' }) {
   const message = await Message.create({
+    room,
     text,
     user: { name: user.name, color: user.color },
     readBy: [],
     status: 'delivered'
   });
 
-  pruneOldMessages();
+  pruneOldMessages(room);
   return serialize(message);
 }
 
 // keep the database from growing forever - only the newest messages matter
-async function pruneOldMessages() {
+async function pruneOldMessages(room) {
   try {
-    const firstToDrop = await Message.find()
+    const firstToDrop = await Message.find({ room })
       .sort({ createdAt: -1 })
       .skip(MAX_HISTORY)
       .limit(1)
@@ -46,14 +49,25 @@ async function pruneOldMessages() {
       .lean();
 
     if (firstToDrop.length > 0) {
-      await Message.deleteMany({ createdAt: { $lte: firstToDrop[0].createdAt } });
+      await Message.deleteMany({ room, createdAt: { $lte: firstToDrop[0].createdAt } });
     }
   } catch (err) {
     console.error('Could not prune old messages:', err.message);
   }
 }
 
-// a message counts as "read" once every OTHER group member has seen it
+// who counts as "everyone else" for a message:
+// the whole group, or just the other participant in a private chat
+async function otherReadersOf(message) {
+  if (isDmRoom(message.room)) {
+    return roomParticipants(message.room)
+      .filter((name) => name !== message.user.name)
+      .map((name) => ({ name }));
+  }
+  return User.find({ name: { $ne: message.user.name } }).select('name').lean();
+}
+
+// a message counts as "read" once every OTHER participant has seen it
 async function markRead(messageId, readerName) {
   const message = await Message.findOne({ id: messageId });
   if (!message) return null;
@@ -63,8 +77,8 @@ async function markRead(messageId, readerName) {
     message.readBy.push(readerName);
   }
   if (!isSender) {
-    const otherMembers = await User.find({ name: { $ne: message.user.name } }).select('name').lean();
-    const everyoneRead = otherMembers.length > 0 && otherMembers.every((m) => message.readBy.includes(m.name));
+    const others = await otherReadersOf(message);
+    const everyoneRead = others.length > 0 && others.every((m) => message.readBy.includes(m.name));
     message.status = everyoneRead ? 'read' : 'delivered';
   }
 
@@ -74,4 +88,19 @@ async function markRead(messageId, readerName) {
   return serialize(message);
 }
 
-module.exports = { getMessages, addMessage, markRead };
+// how many messages in each room the user has not read yet
+async function getUnreadCounts(userName) {
+  const messages = await Message.find({
+    'user.name': { $ne: userName },
+    readBy: { $ne: userName }
+  })
+    .select('room')
+    .lean();
+
+  return messages.reduce((counts, message) => {
+    counts[message.room] = (counts[message.room] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+module.exports = { getMessages, addMessage, markRead, getUnreadCounts };

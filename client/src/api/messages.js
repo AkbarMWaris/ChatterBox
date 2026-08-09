@@ -8,8 +8,8 @@ async function handleResponse(res) {
   return json;
 }
 
-export async function fetchMessages() {
-  const res = await fetch(`${API_URL}/messages`);
+export async function fetchMessages(room = 'group') {
+  const res = await fetch(`${API_URL}/messages?room=${encodeURIComponent(room)}`);
   return handleResponse(res);
 }
 

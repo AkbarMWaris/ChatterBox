@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const messageSchema = new mongoose.Schema(
   {
     id: { type: String, default: () => crypto.randomUUID(), unique: true },
+    room: { type: String, default: 'group', index: true },
     text: { type: String, required: true, trim: true, maxlength: 1000 },
     user: {
       name: { type: String, required: true },
@@ -18,6 +19,6 @@ const messageSchema = new mongoose.Schema(
   { versionKey: false }
 );
 
-messageSchema.index({ createdAt: -1 });
+messageSchema.index({ room: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Message', messageSchema);
