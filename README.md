@@ -102,7 +102,7 @@ read ticks).
 | Variable     | Default                            | Description                                        |
 | ------------ | ---------------------------------- | -------------------------------------------------- |
 | `PORT`       | `5000`                             | Port the API + Socket.io server listens on         |
-| `CLIENT_URL` | `http://localhost:3000`            | Allowed CORS / socket origin                       |
+| `CLIENT_URL` | `http://localhost:3000`            | Allowed CORS / socket origin(s). Comma-separated list or `*` (e.g. `https://chatterbox-nneww.vercel.app`) |
 | `MONGODB_URI`| `mongodb://127.0.0.1:27017/chatterbox` | MongoDB connection string (local or Atlas)     |
 
 ### client/.env

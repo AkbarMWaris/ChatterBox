@@ -5,6 +5,7 @@ const messageStore = require('./store/messageStore');
 const userStore = require('./store/userStore');
 const { colorForName } = require('./utils/color');
 const { dmRoom, isDmRoom, roomParticipants } = require('./utils/room');
+const { getCorsOptions } = require('./utils/cors');
 
 // socket.id -> { name, color }
 // presence lives here, in memory: the DB flag can go stale when a
@@ -13,9 +14,7 @@ const onlineUsers = new Map();
 
 function initSocket(server) {
   const io = new Server(server, {
-    cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:3000'
-    }
+    cors: getCorsOptions()
   });
 
   // deliver an event to everyone in a room:

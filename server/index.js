@@ -7,12 +7,13 @@ const { connectDB } = require('./config/db');
 const messageRoutes = require('./routes/messages');
 const { initSocket } = require('./socket');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const { getCorsOptions } = require('./utils/cors');
 
 const app = express();
 const server = http.createServer(app);
 const io = initSocket(server);
 
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000' }));
+app.use(cors(getCorsOptions()));
 app.use(express.json());
 
 // let controllers access the socket instance
