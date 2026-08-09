@@ -1,23 +1,13 @@
 const { Server } = require('socket.io');
 
 const messageService = require('./services/messageService');
+const userStore = require('./store/userStore');
+const { colorForName } = require('./utils/color');
 
 // socket.id -> { name, color }
+// presence lives here, in memory: the DB flag can go stale when a
+// socket dies without a clean disconnect (browser killed, server restart)
 const onlineUsers = new Map();
-
-const AVATAR_COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e',
-  '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'
-];
-
-// deterministic color per name so a user keeps the same avatar color
-function colorForName(name) {
-  let hash = 0;
-  for (const char of name) {
-    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  }
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 function initSocket(server) {
   const io = new Server(server, {
@@ -25,6 +15,12 @@ function initSocket(server) {
       origin: process.env.CLIENT_URL || 'http://localhost:3000'
     }
   });
+
+  async function broadcastMembers() {
+    const members = await userStore.getMembers();
+    const present = new Set([...onlineUsers.values()].map((u) => u.name));
+    io.emit('members:update', members.map((member) => ({ ...member, online: present.has(member.name) })));
+  }
 
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);
@@ -35,9 +31,10 @@ function initSocket(server) {
 
       socket.data.user = { name, color };
       onlineUsers.set(socket.id, { name, color });
+      await userStore.setOnline({ name, color });
 
-      io.emit('users:online', [...onlineUsers.values()]);
       io.emit('system:notice', { text: `${name} joined the chat`, type: 'join' });
+      await broadcastMembers();
 
       // tell this socket who it is (server assigns the color)
       socket.emit('user:joined', { name, color });
@@ -93,11 +90,12 @@ function initSocket(server) {
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       const user = socket.data.user;
       if (user) {
         onlineUsers.delete(socket.id);
-        io.emit('users:online', [...onlineUsers.values()]);
+        await userStore.setOffline(user.name);
+        await broadcastMembers();
         io.emit('system:notice', { text: `${user.name} left the chat`, type: 'leave' });
         console.log(`${user.name} disconnected`);
       }

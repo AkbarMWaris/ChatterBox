@@ -5,12 +5,19 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 export default function useChat(user, onServerError, onUserJoined) {
   const [messages, setMessages] = useState([]);
-  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [members, setMembers] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
   const [connected, setConnected] = useState(false);
 
   const socketRef = useRef(null);
   const typingTimers = useRef(new Map());
+
+  // mark a message as seen if it was not written by me
+  function markSeen(socket, message) {
+    if (message.user.name !== user.name) {
+      socket.emit('message:read', { messageId: message.id });
+    }
+  }
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -26,16 +33,18 @@ export default function useChat(user, onServerError, onUserJoined) {
       if (onUserJoined) onUserJoined(color);
     });
 
-    socket.on('chat:history', (history) => setMessages(history));
+    socket.on('chat:history', (history) => {
+      setMessages(history);
+      // refresh also counts as "seen" - push read state for other people's messages
+      history.forEach((message) => markSeen(socket, message));
+    });
 
     socket.on('message:new', (message) => {
       setMessages((prev) =>
         prev.some((m) => m.id === message.id) ? prev : [...prev, message]
       );
       // auto mark messages as read when they arrive on an open screen
-      if (message.user.name !== user.name) {
-        socket.emit('message:read', { messageId: message.id });
-      }
+      markSeen(socket, message);
     });
 
     socket.on('message:read', (updated) => {
@@ -44,7 +53,7 @@ export default function useChat(user, onServerError, onUserJoined) {
       );
     });
 
-    socket.on('users:online', (users) => setOnlineUsers(users));
+    socket.on('members:update', setMembers);
 
     socket.on('system:notice', (notice) => {
       setMessages((prev) => [...prev, notice]);
@@ -100,5 +109,5 @@ export default function useChat(user, onServerError, onUserJoined) {
     socketRef.current?.emit('typing', isTyping);
   }
 
-  return { messages, onlineUsers, typingUsers, connected, sendMessage, notifyTyping };
+  return { messages, members, typingUsers, connected, sendMessage, notifyTyping };
 }

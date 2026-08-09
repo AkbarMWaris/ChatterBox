@@ -13,8 +13,9 @@ Messages are delivered instantly over WebSockets, and history survives page refr
 - Message timestamps with "Today / Yesterday" day dividers
 - Username login (dummy auth, persisted in localStorage)
 - Typing indicator with a safety timeout
-- Online/offline user list with presence dots
-- Read / delivered receipts (single tick = delivered, double tick = read)
+- Group info: every member who ever joined (online/offline, last seen)
+- Online/offline presence list with dots
+- Read / delivered receipts (double tick = delivered, blue double tick = read by everyone)
 - Join/leave system notices
 - Connection status banner + graceful error handling
 - Responsive layout (sidebar hides on small screens)
@@ -36,10 +37,12 @@ message app/
     ├── socket.js                   # Socket.io event handlers
     ├── config/db.js                # mongoose connection
     ├── models/Message.js           # message schema (MongoDB)
+    ├── models/User.js              # member registry schema (MongoDB)
     ├── routes/messages.js          # REST routes
     ├── controllers/                # request handlers
     ├── services/                   # business logic (messageService)
-    ├── store/                      # persistence layer (messageStore -> MongoDB)
+    ├── store/                      # persistence layer (messageStore, userStore)
+    ├── utils/color.js              # deterministic avatar color per name
     └── middleware/errorHandler.js  # 404 + 500 handling
 ```
 
@@ -128,7 +131,7 @@ Error responses are always `{ "success": false, "message": "..." }` with an appr
 | `message:new`     | -> client | `Message`                                            | New message (realtime)          |
 | `typing`          | both      | `{ user, isTyping }`                                 | Typing indicator                |
 | `message:read`    | both      | `{ messageId }` / `Message`                          | Read receipt                    |
-| `users:online`    | -> client | `[{ name, color }]`                                  | Presence list                   |
+| `members:update`  | -> client | `[{ name, color, online, lastSeen }]`                | Full member list (all joiners)  |
 | `system:notice`   | -> client | `{ text, type: 'join' \| 'leave' }`                  | Join/leave notices              |
 | `message:error`   | -> client | `{ message }`                                        | Socket-level validation errors  |
 
@@ -154,11 +157,14 @@ A message looks like:
   via mongoose. `server/store/messageStore.js` is the only file that talks to the database,
   and it exposes the same synchronous-looking API to the service layer, so the rest of the
   app stays storage-agnostic. Only the newest 100 messages are kept - older ones are pruned.
+- **Persistent member registry.** A `users` collection remembers everyone who has ever
+  joined, so group info can list members who are offline. Presence (online/offline) comes
+  from the live socket map, not the DB, so it can never go stale after a crash.
 - **Messages are broadcast to the whole room** - it is a single shared chat room, so
   presence and read state are room-wide, not per-conversation.
-- **Read = seen on an open screen.** Clients emit `message:read` for any message that
-  arrives while the app is open; a message flips to `read` once someone other than the
-  sender has seen it.
+- **Read = seen by every other member.** Clients emit `message:read` for messages that
+  arrive on an open screen (including on refresh). A message shows a blue double tick only
+  once every other registered member has read it; a gray double tick means delivered.
 - **Avatar color is derived from the name** (hash of the name against a fixed palette),
   so a user keeps the same color across sessions without any storage.
 - **Typing indicator has a 3s client-side safety timer** so a missed "typing: false" can
@@ -182,6 +188,8 @@ A message looks like:
 ## Known Limitations
 
 - Messages are validated/trimmed server-side but there is no image/file upload support.
-- If two users pick the same name, they share the same avatar color and are treated as
-  one person in read receipts (duplicate names are allowed).
+- If two users pick the same name, they merge into one member record and read receipts
+  treat them as one person (duplicate names are allowed).
+- A message only turns blue when every other member has read it - in a room where a
+  member never returns, older messages keep the gray double tick.
 - The `.env` files are optional - the app runs on sensible defaults.

@@ -1,7 +1,7 @@
 import { formatTime } from '../utils/formatTime';
 
 export default function MessageBubble({ message, isOwn }) {
-  const readByOthers = message.status === 'read';
+  const readByEveryone = message.status === 'read';
 
   return (
     <div className={`message-row ${isOwn ? 'own' : ''}`}>
@@ -17,8 +17,11 @@ export default function MessageBubble({ message, isOwn }) {
         <div className="message-meta">
           <span>{formatTime(message.createdAt)}</span>
           {isOwn && (
-            <span className="read-status" title={readByOthers ? 'Read' : 'Delivered'}>
-              {readByOthers ? '\u2713\u2713' : '\u2713'}
+            <span
+              className={`read-status ${readByEveryone ? 'read' : ''}`}
+              title={readByEveryone ? 'Read by everyone' : 'Delivered'}
+            >
+              {'\u2713\u2713'}
             </span>
           )}
         </div>

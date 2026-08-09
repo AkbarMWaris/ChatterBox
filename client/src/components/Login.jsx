@@ -21,7 +21,7 @@ export default function Login({ onLogin }) {
         <p className="login-subtitle">A tiny chat room. Pick a name and jump in.</p>
 
         <label className="login-label" htmlFor="username">
-          Your name
+          Username
         </label>
         <input
           id="username"
@@ -29,7 +29,7 @@ export default function Login({ onLogin }) {
           type="text"
           value={name}
           maxLength={20}
-          placeholder="e.g. Priya"
+          placeholder="@username"
           onChange={(event) => {
             setName(event.target.value);
             if (error) setError('');

@@ -1,4 +1,5 @@
 const Message = require('../models/Message');
+const User = require('../models/User');
 
 const MAX_HISTORY = 100;
 
@@ -52,7 +53,7 @@ async function pruneOldMessages() {
   }
 }
 
-// a message counts as "read" once someone other than the sender has seen it
+// a message counts as "read" once every OTHER group member has seen it
 async function markRead(messageId, readerName) {
   const message = await Message.findOne({ id: messageId });
   if (!message) return null;
@@ -61,8 +62,10 @@ async function markRead(messageId, readerName) {
   if (!isSender && !message.readBy.includes(readerName)) {
     message.readBy.push(readerName);
   }
-  if (!isSender && message.readBy.length > 0 && message.status !== 'read') {
-    message.status = 'read';
+  if (!isSender) {
+    const otherMembers = await User.find({ name: { $ne: message.user.name } }).select('name').lean();
+    const everyoneRead = otherMembers.length > 0 && otherMembers.every((m) => message.readBy.includes(m.name));
+    message.status = everyoneRead ? 'read' : 'delivered';
   }
 
   if (message.isModified()) {

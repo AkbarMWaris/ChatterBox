@@ -1,4 +1,6 @@
-export default function Sidebar({ currentUser, onlineUsers, connected, onLogout }) {
+export default function Sidebar({ currentUser, members, connected, onLogout }) {
+  const onlineUsers = members.filter((member) => member.online);
+
   return (
     <aside className="sidebar">
       <div className="sidebar-profile">
@@ -32,7 +34,7 @@ export default function Sidebar({ currentUser, onlineUsers, connected, onLogout 
             </li>
           ))}
           {onlineUsers.length === 0 && (
-            <li className="user-list-empty">No one else is here right now</li>
+            <li className="user-list-empty">No one is online right now</li>
           )}
         </ul>
       </div>

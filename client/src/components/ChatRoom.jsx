@@ -3,12 +3,14 @@ import useChat from '../hooks/useChat';
 import Sidebar from './Sidebar';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import MembersModal from './MembersModal';
 
 export default function ChatRoom({ user, onLogout, onUserUpdate }) {
   const [notice, setNotice] = useState(null);
+  const [showMembers, setShowMembers] = useState(false);
   const [userColor, setUserColor] = useState(user.color);
 
-  const { messages, onlineUsers, typingUsers, connected, sendMessage, notifyTyping } = useChat(
+  const { messages, members, typingUsers, connected, sendMessage, notifyTyping } = useChat(
     user,
     (message) => setNotice(message),
     (color) => {
@@ -23,12 +25,13 @@ export default function ChatRoom({ user, onLogout, onUserUpdate }) {
   }
 
   const currentUser = { ...user, color: userColor };
+  const onlineCount = members.filter((member) => member.online).length;
 
   return (
     <div className="chat-layout">
       <Sidebar
         currentUser={currentUser}
-        onlineUsers={onlineUsers}
+        members={members}
         connected={connected}
         onLogout={onLogout}
       />
@@ -38,12 +41,22 @@ export default function ChatRoom({ user, onLogout, onUserUpdate }) {
           <div>
             <h1 className="chat-title">General room</h1>
             <span className="chat-subtitle">
-              {connected ? 'Everyone can see this room' : 'Reconnecting...'}
+              {connected ? `${onlineCount} online in the room` : 'Reconnecting...'}
             </span>
           </div>
-          <span className={`status-pill ${connected ? 'status-online' : 'status-offline'}`}>
-            {connected ? 'Connected' : 'Offline'}
-          </span>
+          <div className="chat-header-actions">
+            <button
+              className="info-button"
+              onClick={() => setShowMembers(true)}
+              title="Group info"
+              aria-label="Group info"
+            >
+              i
+            </button>
+            <span className={`status-pill ${connected ? 'status-online' : 'status-offline'}`}>
+              {connected ? `Connected` : 'Offline'}
+            </span>
+          </div>
         </header>
 
         {notice && (
@@ -62,6 +75,14 @@ export default function ChatRoom({ user, onLogout, onUserUpdate }) {
         />
         <MessageInput onSend={handleSend} onTyping={notifyTyping} disabled={!connected} />
       </main>
+
+      {showMembers && (
+        <MembersModal
+          members={members}
+          currentUserName={user.name}
+          onClose={() => setShowMembers(false)}
+        />
+      )}
     </div>
   );
 }
