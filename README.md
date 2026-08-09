@@ -19,7 +19,7 @@ Messages are delivered instantly over WebSockets, and history survives page refr
 - Read / delivered receipts (double tick = delivered, blue double tick = read by everyone)
 - Join/leave system notices
 - Connection status banner + graceful error handling
-- Responsive layout (sidebar hides on small screens)
+- Responsive layout (on small screens the chat list becomes a slide-in drawer opened via the hamburger button)
 
 ## Project Structure
 

@@ -5,6 +5,7 @@ export default function Sidebar({
   members,
   activeRoom,
   unread,
+  open,
   onSelectChat,
   connected,
   onLogout
@@ -17,7 +18,7 @@ export default function Sidebar({
   const groupUnread = unread[groupRoom] || 0;
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${open ? 'open' : ''}`}>
       <div className="sidebar-profile">
         <span className="avatar" style={{ backgroundColor: currentUser.color }}>
           {currentUser.name.charAt(0).toUpperCase()}

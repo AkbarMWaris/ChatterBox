@@ -9,6 +9,7 @@ import { dmRoom } from '../utils/room';
 export default function ChatRoom({ user, onLogout, onUserUpdate }) {
   const [notice, setNotice] = useState(null);
   const [showMembers, setShowMembers] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userColor, setUserColor] = useState(user.color);
   // { type: 'group' } or { type: 'dm', name: 'Alice' }
   const [chat, setChat] = useState({ type: 'group' });
@@ -32,6 +33,11 @@ export default function ChatRoom({ user, onLogout, onUserUpdate }) {
     openRoom(activeRoom);
   }, [activeRoom]);
 
+  function handleSelectChat(nextChat) {
+    setChat(nextChat);
+    setSidebarOpen(false);
+  }
+
   function handleSend(text, attachment) {
     const ok = sendMessage(text, isDm ? chat.name : null, attachment);
     if (!ok) setNotice('Not connected to the server yet, please wait a second');
@@ -45,18 +51,29 @@ export default function ChatRoom({ user, onLogout, onUserUpdate }) {
 
   return (
     <div className="chat-layout">
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
       <Sidebar
         currentUser={currentUser}
         members={members}
         activeRoom={activeRoom}
         unread={unread}
-        onSelectChat={setChat}
+        open={sidebarOpen}
+        onSelectChat={handleSelectChat}
         connected={connected}
         onLogout={onLogout}
       />
 
       <main className="chat-panel">
         <header className="chat-header">
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open chats"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 6h18M3 12h18M3 18h18" />
+            </svg>
+          </button>
           <div>
             <h1 className="chat-title">{isDm ? chat.name : 'General room'}</h1>
             <span className="chat-subtitle">
