@@ -41,9 +41,17 @@ exports.getFile = async (req, res, next) => {
     }
 
     const size = file.length;
+    // the driver does not persist the `contentType` write option, so the real
+    // mimetype is read from metadata (set at upload time)
+    const mime = file.metadata?.mime || file.contentType || 'application/octet-stream';
     res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Content-Type', file.contentType || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.filename)}"`);
+    res.setHeader('Content-Type', mime);
+    res.setHeader(
+      'Content-Disposition',
+      req.query.download
+        ? `attachment; filename="${encodeURIComponent(file.filename)}"`
+        : `inline; filename="${encodeURIComponent(file.filename)}"`
+    );
 
     const range = req.headers.range;
     if (range) {

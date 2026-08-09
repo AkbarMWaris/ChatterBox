@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { formatTime } from '../utils/formatTime';
 
 export default function MessageBubble({ message, isOwn }) {
+  const [viewing, setViewing] = useState(false);
   const readByEveryone = message.status === 'read';
 
   return (
@@ -14,13 +16,12 @@ export default function MessageBubble({ message, isOwn }) {
       <div className={`message-bubble ${isOwn ? 'sent' : 'received'}`}>
         {!isOwn && <div className="message-sender">{message.user.name}</div>}
         {message.type === 'image' && (
-          <a href={message.file.url} target="_blank" rel="noreferrer">
-            <img
-              className="message-image"
-              src={message.file.url}
-              alt={message.file.name || 'image'}
-            />
-          </a>
+          <img
+            className="message-image"
+            src={message.file.url}
+            alt={message.file.name || 'image'}
+            onClick={() => setViewing(true)}
+          />
         )}
         {message.type === 'video' && (
           <video
@@ -43,6 +44,32 @@ export default function MessageBubble({ message, isOwn }) {
           )}
         </div>
       </div>
+
+      {viewing && (
+        <div className="message-lightbox" onClick={() => setViewing(false)}>
+          <div className="message-lightbox-card" onClick={(event) => event.stopPropagation()}>
+            <img className="message-lightbox-img" src={message.file.url} alt={message.file.name} />
+            <div className="message-lightbox-bar">
+              <span className="message-lightbox-name">{message.file.name}</span>
+              <a
+                className="lightbox-button"
+                href={`${message.file.url}?download=1`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Download
+              </a>
+              <button
+                className="lightbox-button"
+                onClick={() => setViewing(false)}
+                aria-label="Close preview"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

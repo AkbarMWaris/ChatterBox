@@ -120,7 +120,7 @@ read ticks).
 | GET    | `/api/messages`   | - (optional `?room=` and `?limit=`, default room `group`, default limit 50) | Fetch chat history for a room |
 | POST   | `/api/messages`   | `{ "text": "...", "user": { "name": "..." }, "to": "Alice" }` | Send a message (`to` = recipient for a private chat, omit for the group) |
 | POST   | `/api/upload`     | multipart form field `file` (image or video) | Upload a file to GridFS; returns `{ id, url, type, name, size, mime }` |
-| GET    | `/api/files/:id`  | -                                          | Stream a stored file (supports `Range` requests for video seeking) |
+| GET    | `/api/files/:id`  | - (optional `?download=1`) | Stream a stored file (supports `Range` requests for video seeking; add `?download=1` to force an `attachment` disposition) |
 
 Error responses are always `{ "success": false, "message": "..." }` with an appropriate status code.
 
@@ -163,6 +163,12 @@ For media messages `type` is `"image"` or `"video"` and `file` carries
 `{ id, url, type, name, size, mime }`; `url` is an absolute URL pointing back at
 `GET /api/files/:id` so it works from any deployed frontend. `text` may be empty
 for media-only messages (and is validated: a message needs text and/or a file).
+
+The composer stages a selected file as a small thumbnail with a corner cancel
+button - the regular Send button then sends the file (plus any caption) or a
+text-only message. Nothing is sent until Send is clicked. Clicking a sent image
+opens a full-screen lightbox with an optional Download button (`?download=1`
+streams it as an attachment).
 
 Rooms are `group` or `dm:<sorted member names>` (e.g. `dm:Alice:Ravi`).
 

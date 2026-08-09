@@ -784,6 +784,7 @@ button {
   max-height: 260px;
   border-radius: 10px;
   margin-bottom: 4px;
+  cursor: pointer;
 }
 
 .message-video {
@@ -792,6 +793,134 @@ button {
   max-height: 260px;
   border-radius: 10px;
   margin-bottom: 4px;
+}
+
+/* ---------- attachment preview (staged file) ---------- */
+
+.message-composer {
+  background: var(--surface);
+}
+
+.attach-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px 0;
+}
+
+.attach-preview-box {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.attach-preview-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #f4f5f7;
+  display: block;
+}
+
+.attach-preview-cancel {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.attach-preview-cancel:hover {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.attach-preview-name {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- image lightbox ---------- */
+
+.message-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.message-lightbox-card {
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: min(90vw, 900px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.message-lightbox-img {
+  max-width: 100%;
+  max-height: calc(90vh - 58px);
+  object-fit: contain;
+  display: block;
+}
+
+.message-lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.message-lightbox-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lightbox-button {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.lightbox-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ---------- scrollbar ---------- */

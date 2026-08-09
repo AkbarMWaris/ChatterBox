@@ -39,7 +39,7 @@ async function storeFile(file, baseUrl) {
       String(file.originalname).slice(0, MAX_FILENAME_LENGTH),
       {
         contentType: file.mimetype,
-        metadata: { type }
+        metadata: { type, mime: file.mimetype }
       }
     );
 
