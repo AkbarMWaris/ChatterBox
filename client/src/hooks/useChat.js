@@ -24,7 +24,10 @@ export default function useChat(user, onServerError, onUserJoined) {
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling']
+      // polling first: Render free instances sit behind a proxy that refuses
+      // WebSocket upgrades, so we connect over HTTP and only upgrade where the
+      // host actually supports WebSockets (local dev, paid Render, etc.)
+      transports: ['polling', 'websocket']
     });
     socketRef.current = socket;
 
